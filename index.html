@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conduit Health — Org Chart</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue: #2563eb; --purple: #7c3aed; --amber: #d97706; --orange: #ea580c;
+  --green: #16a34a; --teal: #0891b2; --slate: #475569; --light-slate: #94a3b8;
+  --line: #cbd5e1; --bg: #f1f5f9; --card: #fff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',-apple-system,sans-serif; background:var(--bg); color:#1e293b; overflow:hidden; height:100vh; }
+
+/* ========== HEADER ========== */
+.header { background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 24px; display:flex; align-items:center; justify-content:space-between; position:fixed; top:0;left:0;right:0; z-index:200; height:52px; }
+.header-left { display:flex; align-items:center; gap:10px; }
+.logo { width:30px;height:30px; background:linear-gradient(135deg,var(--blue),var(--purple)); border-radius:8px; display:flex;align-items:center;justify-content:center; color:#fff;font-weight:800;font-size:14px; }
+.header-title { font-size:16px; font-weight:700; letter-spacing:-0.02em; }
+.header-sub { font-size:10px; color:var(--light-slate); }
+.controls { display:flex; align-items:center; gap:6px; }
+.ctrl-btn { padding:5px 12px; border-radius:6px; border:1px solid #e2e8f0; background:#fff; color:#64748b; font-size:11px; cursor:pointer; font-weight:600; font-family:inherit; transition:all 0.15s; }
+.ctrl-btn:hover { background:#f8fafc; border-color:#cbd5e1; }
+.ctrl-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.zoom-label { font-size:11px; color:#64748b; font-weight:600; min-width:38px; text-align:center; }
+
+/* ========== PANELS (Tabs) ========== */
+.panels-wrap { position:fixed; top:52px;left:0;right:0; z-index:190; transition:right 0.3s; }
+.panel-tabs { display:flex; background:#fff; border-bottom:1px solid #e2e8f0; }
+.panel-tab { flex:1; padding:6px 16px; font-size:11px; font-weight:700; text-align:center; cursor:pointer; border:none; background:#f8fafc; color:var(--light-slate); font-family:inherit; transition:all 0.15s; border-bottom:2px solid transparent; }
+.panel-tab.active { background:#fff; color:#1e293b; border-bottom-color:var(--blue); }
+.panel-tab:hover { background:#fff; }
+.panel-content { display:none; max-height:35vh; overflow-y:auto; }
+.panel-content.active { display:block; }
+.flags { background:#fffbeb; border-bottom:1px solid #fcd34d; padding:10px 24px; }
+.flags-item { font-size:12px; color:#92400e; padding:3px 0; line-height:1.4; }
+.flags-item strong { color:#78350f; }
+.hiring-panel { background:#eff6ff; border-bottom:1px solid #93c5fd; padding:10px 24px; }
+.hiring-table { width:100%; border-collapse:collapse; font-size:11px; margin-top:4px; }
+.hiring-table th { text-align:left; font-size:9px; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:0.03em; padding:4px 8px; border-bottom:1px solid #bfdbfe; }
+.hiring-table td { padding:4px 8px; color:#1e40af; border-bottom:1px solid #dbeafe; }
+.hiring-table tr:hover td { background:#dbeafe40; }
+.hiring-summary { font-size:11px; font-weight:600; color:#1d4ed8; margin-top:8px; }
+
+/* ========== CANVAS ========== */
+.canvas-wrap { position:fixed; top:130px;left:0;right:0;bottom:0; overflow:hidden; cursor:grab; transition:right 0.3s; }
+.canvas-wrap.dragging { cursor:grabbing; }
+.canvas { position:absolute; transform-origin:0 0; padding:40px; }
+
+/* ========== LEGEND ========== */
+.legend { position:fixed; bottom:12px;left:50%; transform:translateX(-50%); background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 20px; display:flex; gap:20px; align-items:center; z-index:190; box-shadow:0 2px 12px rgba(0,0,0,0.06); transition:left 0.3s; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--light-slate); }
+.legend-line { width:24px; height:0; }
+.legend-solid { border-top:2px solid var(--line); }
+.legend-dashed { border-top:2px dashed var(--line); }
+.legend-box { width:12px;height:12px; border-radius:3px; }
+
+/* ========== TREE NODES ========== */
+.tree { display:flex; flex-direction:column; align-items:center; }
+.row { display:flex; align-items:flex-start; }
+.node { border-radius:10px; padding:8px 14px; text-align:center; width:140px; position:relative; background:#fff; }
+.node-sm { width:118px; border-radius:8px; padding:5px 10px; }
+.node-name { font-size:13px; font-weight:700; line-height:1.2; }
+.node-sm .node-name { font-size:11px; }
+.node-title { font-size:10px; color:var(--light-slate); margin-top:1px; line-height:1.2; }
+.node-sm .node-title { font-size:9px; }
+.node-badge { display:inline-block; font-size:8px; font-weight:700; padding:1px 7px; border-radius:10px; margin-top:3px; }
+.node-exec { color:#fff; border:none; width:155px; padding:10px 16px; }
+.node-exec .node-name { font-size:16px; color:#fff; }
+.node-exec .node-title { color:rgba(255,255,255,0.85); }
+.node-hiring { background:#eff6ff; border:1.5px dashed #93c5fd; width:118px; padding:5px 10px; border-radius:8px; }
+.node-hiring .node-name { font-size:10px; font-weight:600; color:#3b82f6; }
+.node-hiring .node-title { font-size:9px; color:#93c5fd; }
+.node-contractor { background:#fffef5; border:1.5px dashed #fcd34d; width:118px; padding:5px 10px; border-radius:8px; }
+.node-contractor .node-name { font-size:11px; font-weight:600; color:#92400e; }
+.node-contractor .node-title { font-size:9px; color:#b45309; }
+.node-question { background:#fffbeb; border:1.5px dashed #f59e0b; position:relative; }
+.node-question::after { content:'❓'; position:absolute; top:-10px; right:-6px; font-size:16px; }
+.pod-header { border-radius:10px; padding:6px 16px; text-align:center; width:148px; }
+.pod-header-name { font-size:12px; font-weight:700; }
+.pod-header-sub { font-size:9px; }
+.zone-label { font-size:10px; font-weight:700; padding:3px 14px; border-radius:20px; display:inline-block; margin-bottom:8px; }
+.bucket { background:#fef3c7; border-radius:8px; padding:5px 10px; text-align:center; width:118px; }
+.bucket-name { font-size:11px; font-weight:700; color:#92400e; }
+.bucket-sub { font-size:9px; color:#b45309; }
+.lane-badge { font-size:9px; font-weight:700; color:#fff; padding:1px 8px; border-radius:10px; display:inline-block; margin-bottom:3px; }
+.vline { width:0; margin:0 auto; }
+.vline-solid { border-left:2px solid var(--line); }
+.vline-dashed { border-left:2px dashed var(--line); }
+.subtree { display:flex; flex-direction:column; align-items:center; }
+.branch-children { display:flex; gap:6px; align-items:flex-start; position:relative; }
+.branch-children.has-hline::before { content:''; position:absolute; top:0; border-top:2px solid var(--branch-color,var(--line)); }
+.branch-children.has-hline.dashed-h::before { border-top-style:dashed; }
+.branch-child { display:flex; flex-direction:column; align-items:center; }
+.branch-child > .vline { height:14px; }
+.col-stack { display:flex; flex-direction:column; gap:4px; align-items:center; }
+.section-label { font-size:9px; font-weight:700; color:var(--light-slate); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; text-align:center; }
+.flag-label { font-size:8px; font-weight:600; color:#dc2626; margin-top:1px; }
+
+/* ========== CHAT PANEL ========== */
+.chat-toggle { position:fixed; bottom:16px; right:16px; z-index:300; width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,var(--blue),var(--purple)); color:#fff; border:none; cursor:pointer; font-size:22px; box-shadow:0 4px 20px rgba(37,99,235,0.35); transition:all 0.2s; display:flex; align-items:center; justify-content:center; }
+.chat-toggle:hover { transform:scale(1.08); box-shadow:0 6px 24px rgba(37,99,235,0.45); }
+.chat-toggle.open { background:#64748b; }
+.chat-panel { position:fixed; top:0; right:-420px; bottom:0; width:420px; background:#fff; z-index:250; box-shadow:-4px 0 30px rgba(0,0,0,0.12); display:flex; flex-direction:column; transition:right 0.3s cubic-bezier(0.4,0,0.2,1); }
+.chat-panel.open { right:0; }
+.chat-header { padding:14px 20px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; }
+.chat-header h3 { font-size:14px; font-weight:700; }
+.chat-header span { font-size:10px; color:var(--light-slate); }
+.chat-key-bar { padding:8px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; gap:6px; align-items:center; }
+.chat-key-bar input { flex:1; font-size:11px; padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px; font-family:inherit; }
+.chat-key-bar button { font-size:10px; }
+.chat-messages { flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:12px; }
+.chat-msg { max-width:90%; padding:10px 14px; border-radius:12px; font-size:12px; line-height:1.5; }
+.chat-msg.user { align-self:flex-end; background:var(--blue); color:#fff; border-bottom-right-radius:4px; }
+.chat-msg.assistant { align-self:flex-start; background:#f1f5f9; color:#1e293b; border-bottom-left-radius:4px; }
+.chat-msg.system { align-self:center; background:#fffbeb; color:#92400e; font-size:11px; text-align:center; border-radius:8px; }
+.chat-msg.error { align-self:center; background:#fef2f2; color:#dc2626; font-size:11px; }
+.chat-input-bar { padding:12px 20px; border-top:1px solid #e2e8f0; display:flex; gap:8px; }
+.chat-input-bar textarea { flex:1; font-size:12px; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; font-family:inherit; resize:none; min-height:40px; max-height:100px; }
+.chat-input-bar textarea:focus { outline:none; border-color:var(--blue); }
+.chat-send { width:40px; height:40px; border-radius:8px; background:var(--blue); color:#fff; border:none; cursor:pointer; font-size:16px; flex-shrink:0; }
+.chat-send:disabled { background:#cbd5e1; cursor:not-allowed; }
+.typing-dot { display:inline-block; width:6px; height:6px; background:#94a3b8; border-radius:50%; animation:bounce 1.2s infinite; margin:0 2px; }
+.typing-dot:nth-child(2) { animation-delay:0.2s; }
+.typing-dot:nth-child(3) { animation-delay:0.4s; }
+@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+
+/* Chat open adjustments */
+body.chat-open .canvas-wrap { right:420px; }
+body.chat-open .panels-wrap { right:420px; }
+body.chat-open .legend { left:calc(50% - 210px); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">C</div>
+    <div>
+      <div class="header-title">Conduit Health Inc.</div>
+      <div class="header-sub">Organization Chart — Drag to pan · Scroll to zoom</div>
+    </div>
+  </div>
+  <div class="controls">
+    <span style="font-size:10px;color:#94a3b8">Zoom</span>
+    <button class="ctrl-btn" onclick="changeZoom(-0.1)">−</button>
+    <span class="zoom-label" id="zoomLabel">85%</span>
+    <button class="ctrl-btn" onclick="changeZoom(0.1)">+</button>
+    <button class="ctrl-btn" onclick="resetView()">Fit</button>
+  </div>
+</div>
+
+<!-- PANELS -->
+<div class="panels-wrap">
+  <div class="panel-tabs">
+    <button class="panel-tab active" onclick="switchTab('discussion',this)">📋 Discussion Points</button>
+    <button class="panel-tab" onclick="switchTab('hiring',this)">🔍 Open Roles</button>
+  </div>
+  <div class="panel-content active" id="tab-discussion">
+    <div class="flags" id="discussionList"></div>
+  </div>
+  <div class="panel-content" id="tab-hiring">
+    <div class="hiring-panel" id="hiringList"></div>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<div class="canvas-wrap" id="canvasWrap">
+  <div class="canvas" id="canvas"></div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-line legend-solid"></div> Direct report</div>
+  <div class="legend-item"><div class="legend-line legend-dashed"></div> Joint / matrix</div>
+  <div class="legend-item"><div class="legend-box" style="background:#eff6ff;border:1.5px dashed #93c5fd;"></div> Hiring</div>
+  <div class="legend-item"><div class="legend-box" style="background:#fffef5;border:1.5px dashed #fcd34d;"></div> Contractor</div>
+</div>
+
+<!-- CHAT TOGGLE -->
+<button class="chat-toggle" id="chatToggle" onclick="toggleChat()" title="Open AI Editor">💬</button>
+
+<!-- CHAT PANEL -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div>
+      <h3>Org Chart Editor</h3>
+      <span>Powered by Claude · Describe changes in plain English</span>
+    </div>
+  </div>
+  <div class="chat-key-bar" id="keyBar">
+    <input type="password" id="apiKeyInput" placeholder="Paste your Anthropic API key..." />
+    <button class="ctrl-btn" onclick="saveApiKey()">Save</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg system">
+      👋 Tell me what to change and I'll update the org chart. Examples:<br>
+      <em>"Move Ron Mirta to Clinical"</em><br>
+      <em>"Add a new hire under Brie called PX Coordinator"</em><br>
+      <em>"Remove the question mark from Clinical"</em>
+    </div>
+  </div>
+  <div class="chat-input-bar">
+    <textarea id="chatInput" placeholder="Describe a change..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+    <button class="chat-send" id="chatSend" onclick="sendChat()">↑</button>
+  </div>
+</div>
+
+<script>
+// =============================================================================
+// ORG DATA — This is the single source of truth. The chatbot modifies this.
+// =============================================================================
+let ORG = {
+  discussionPoints: [
+    { text: "Clinical — What are we doing with this department? Decide structure and direction.", tag: "Clinical" },
+    { text: "Hanna McCormack (SysOps Manager) — Where does she live? Currently in Shared Services but placement TBD.", tag: "Hanna" },
+    { text: "PayOps Head — Still TBD. Reports jointly to Natan + Rocky.", tag: "PayOps" },
+    { text: "PayOps Complaintments — Hiring someone for compliance + maintenance across both lanes.", tag: "Complaintments" },
+    { text: "Patient Experience — What are we adding under Brie once she joins?", tag: "PX" }
+  ],
+  openRoles: [
+    { role: "Brand Designer", dept: "Brand & Marketing", reportsTo: "Jacob Orbach-Smith", count: "1" },
+    { role: "BDRs", dept: "Partnerships → Partner Growth", reportsTo: "Joe Guay", count: "3" },
+    { role: "PSMs", dept: "Partnerships → Partner Success", reportsTo: "Adam Yecies", count: "2–3" },
+    { role: "Bookkeeper", dept: "Corporate Ops", reportsTo: "Nick Angelucci", count: "1" },
+    { role: "TA & People Ops", dept: "Corporate Ops", reportsTo: "Natan Wise", count: "1" },
+    { role: "Growth PM", dept: "Product & Eng → Growth Pod", reportsTo: "John Farmer", count: "1" },
+    { role: "Growth Product Designer", dept: "Product & Eng → Growth Pod", reportsTo: "John Farmer", count: "1" },
+    { role: "PayOps Head", dept: "PayOps (Joint)", reportsTo: "Natan + Rocky", count: "1" },
+    { role: "Complaintments Head", dept: "PayOps", reportsTo: "PayOps Head (TBD)", count: "1" },
+    { role: "Fulfillment Operations", dept: "Fulfillment", reportsTo: "Abigail Laffey", count: "1" },
+    { role: "Patient Experience TBD", dept: "Patient Experience", reportsTo: "Brie Thompson", count: "TBD" }
+  ],
+  executives: {
+    ceo: { name: "Natan Wise", title: "CEO" },
+    cpo: { name: "Rocky Seftel", title: "CPO" }
+  },
+  natanOrg: [
+    {
+      id: "brand", head: "Jacob Orbach-Smith", headTitle: "Brand & Marketing", color: "green",
+      children: [
+        { name: "Brand Designer", type: "hiring" },
+        { name: "Eli Hurowitz", title: "Marketing", type: "contractor" },
+        { name: "Helen Kim", title: "Design", type: "contractor" }
+      ]
+    },
+    {
+      id: "partnerships", head: "Matt Hardoon", headTitle: "Partnerships", color: "green",
+      children: [
+        {
+          name: "Joe Guay", title: "Partner Growth", type: "employee",
+          children: [{ name: "BDRs ×3", type: "hiring" }]
+        },
+        {
+          name: "Adam Yecies", title: "Partner Success", type: "employee",
+          children: [{ name: "PSMs ×2–3", type: "hiring" }]
+        }
+      ]
+    },
+    {
+      id: "corpops", head: null, headTitle: "Corporate Ops", color: "teal",
+      children: [
+        { name: "Nick Angelucci", title: "Controller", type: "employee" },
+        { name: "Bookkeeper", type: "hiring" },
+        { name: "TA & People", type: "hiring" }
+      ]
+    },
+    {
+      id: "ceodirect", singleNode: true,
+      children: [{ name: "Michael White", title: "Biz Dev", type: "contractor" }]
+    }
+  ],
+  prodEng: {
+    leaders: [
+      { name: "John Farmer", title: "Head of Product", subtitle: "+ Operations PM" },
+      { name: "Joel Cowie", title: "Head of Engineering" }
+    ],
+    growthPod: {
+      product: [
+        { name: "Growth PM", type: "hiring" },
+        { name: "Growth Designer", type: "hiring" }
+      ],
+      engineering: [
+        { name: "Jordan Rosenberg", type: "employee" },
+        { name: "Keegan Jones", type: "employee" },
+        { name: "Tory Styner", type: "employee" }
+      ]
+    },
+    opsPod: {
+      product: [
+        { name: "Julia Grummel", title: "Product Designer", type: "employee" }
+      ],
+      engineering: [
+        { name: "Ron Hsiao", type: "employee" },
+        { name: "Brian Cort", type: "employee" },
+        { name: "Chris Hranj", type: "employee" },
+        { name: "Marin Mestrovic", type: "employee" },
+        { name: "Morgan Curley", type: "employee" },
+        { name: "Pedro Gorla", type: "employee" }
+      ]
+    },
+    shared: [
+      { name: "Henry Richey", title: "BI Analyst", type: "employee" },
+      { name: "Hanna McCormack", title: "SysOps Manager", type: "employee", flag: "Placement TBD" },
+      { name: "CloudKite", title: "DevOps", type: "contractor" }
+    ]
+  },
+  payOps: {
+    contracting: {
+      dme: {
+        lead: { name: "Raquel Sastow", type: "employee" },
+        children: [
+          { name: "Hana Lowenthal", type: "contractor" },
+          { name: "Visionera", type: "contractor" },
+          { name: "Jake Mead", type: "contractor" }
+        ]
+      },
+      telehealth: {
+        children: [{ name: "Lauren Howard", title: "Lead", type: "contractor" }]
+      }
+    },
+    gettingPaid: {
+      lead: { name: "Alex Zajac", type: "employee" },
+      children: [{ name: "Excelsior", title: "Billing", type: "contractor" }]
+    },
+    complaintments: {
+      children: [{ name: "Head — Both Lanes", type: "hiring" }]
+    }
+  },
+  rockyOrg: [
+    {
+      id: "px", head: "Brie Thompson", headTitle: "Patient Experience", color: "purple",
+      children: [
+        { name: "Ron Mirta", title: "Patient Coord.", type: "employee" },
+        { name: "TBD Additions", type: "question", flag: "Decide post-hire" }
+      ]
+    },
+    {
+      id: "clinical", head: null, headTitle: "Clinical", color: "purple",
+      isQuestion: true, questionFlag: "Decide Tomorrow",
+      children: [
+        { name: "Jamie Tils", title: "Visit Ops", type: "employee" }
+      ]
+    },
+    {
+      id: "fulfillment", head: "Abigail Laffey", headTitle: "Fulfillment", color: "purple",
+      children: [
+        { name: "Jade Piatt", title: "Auth + Warehouse", type: "employee" },
+        { name: "Fulfillment Ops", type: "hiring" }
+      ]
+    },
+    {
+      id: "rockycontractors", contractorGroup: true,
+      children: [
+        { name: "Merchants", title: "PX BPO (SA)", type: "contractor" },
+        { name: "inTeam", title: "Ops BPO (PH)", type: "contractor" },
+        { name: "Rachel Lopez", title: "Operations", type: "contractor" },
+        { name: "Visiting Docs", title: "Telehealth", type: "contractor" }
+      ]
+    }
+  ]
+};
+
+// =============================================================================
+// RENDER ENGINE
+// =============================================================================
+const h = (tag, attrs, ...children) => {
+  const el = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'className') el.className = v;
+    else if (k === 'innerHTML') el.innerHTML = v;
+    else el.setAttribute(k, v);
+  });
+  children.flat(5).forEach(c => { if (c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return el;
+};
+
+function renderNode(n, extraClass = '') {
+  if (n.type === 'hiring') {
+    const el = h('div', { className: `node-hiring ${extraClass}` });
+    el.innerHTML = `<div class="node-name">🔍 ${n.name}</div>${n.title ? `<div class="node-title">${n.title}</div>` : ''}`;
+    return el;
+  }
+  if (n.type === 'contractor') {
+    const el = h('div', { className: `node-contractor ${extraClass}` });
+    el.innerHTML = `<div class="node-name">${n.name}</div>${n.title ? `<div class="node-title">${n.title}</div>` : ''}`;
+    return el;
+  }
+  if (n.type === 'question') {
+    const el = h('div', { className: `node-hiring node-question ${extraClass}` });
+    el.innerHTML = `<div class="node-name" style="color:#b45309">${n.name}</div>${n.flag ? `<div class="flag-label">${n.flag}</div>` : ''}`;
+    return el;
+  }
+  // employee
+  const el = h('div', { className: `node node-sm ${extraClass}` });
+  el.style.border = '1.5px solid #e2e8f0';
+  el.innerHTML = `<div class="node-name">${n.name}</div>${n.title ? `<div class="node-title">${n.title}</div>` : ''}${n.flag ? `<div class="flag-label">${n.flag}</div>` : ''}`;
+  if (n.flag) el.classList.add('node-question');
+  return el;
+}
+
+function vline(height, dashed, color) {
+  const el = h('div', { className: `vline ${dashed ? 'vline-dashed' : 'vline-solid'}` });
+  el.style.height = height + 'px';
+  if (color) el.style.borderColor = color;
+  return el;
+}
+
+function makeBranch(children, opts = {}) {
+  const { dashed, color, gap } = { dashed: false, color: 'var(--line)', gap: '6px', ...opts };
+  const wrap = h('div', { className: `branch-children has-hline${dashed ? ' dashed-h' : ''}` });
+  wrap.style.setProperty('--branch-color', color);
+  wrap.style.setProperty('--child-count', children.length);
+  wrap.style.gap = gap;
+  // Calculate hline positioning
+  const pct = 100 / (children.length * 2);
+  wrap.style.cssText += `; --branch-color:${color}`;
+
+  children.forEach((childEl, i) => {
+    const bc = h('div', { className: 'branch-child' }, vline(14, dashed, color), childEl);
+    wrap.appendChild(bc);
+  });
+
+  // Horizontal line positioning
+  requestAnimationFrame(() => {
+    if (wrap.children.length < 2) { wrap.classList.remove('has-hline'); return; }
+    const first = wrap.children[0], last = wrap.children[wrap.children.length - 1];
+    const wrapRect = wrap.getBoundingClientRect();
+    const firstCenter = first.getBoundingClientRect().left + first.getBoundingClientRect().width / 2 - wrapRect.left;
+    const lastCenter = last.getBoundingClientRect().left + last.getBoundingClientRect().width / 2 - wrapRect.left;
+    const before = wrap.querySelector(':scope')
+    wrap.style.setProperty('--hl', firstCenter + 'px');
+    wrap.style.setProperty('--hr', (wrapRect.width - lastCenter) + 'px');
+  });
+
+  return wrap;
+}
+
+// Override the ::before with inline style after layout
+const patchHlines = () => {
+  document.querySelectorAll('.branch-children.has-hline').forEach(wrap => {
+    if (wrap.children.length < 2) { wrap.classList.remove('has-hline'); return; }
+    const first = wrap.children[0], last = wrap.children[wrap.children.length - 1];
+    const wrapRect = wrap.getBoundingClientRect();
+    if (wrapRect.width === 0) return;
+    const fl = first.getBoundingClientRect(); const ll = last.getBoundingClientRect();
+    const leftPx = fl.left + fl.width / 2 - wrapRect.left;
+    const rightPx = wrapRect.right - (ll.left + ll.width / 2);
+    wrap.style.setProperty('--hl', leftPx + 'px');
+    wrap.style.setProperty('--hr', rightPx + 'px');
+  });
+};
+
+// Patch CSS to use custom properties
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `.branch-children.has-hline::before { left: var(--hl, 25%); right: var(--hr, 25%); }`;
+document.head.appendChild(styleSheet);
+
+function renderDepartment(dept, lineColor) {
+  const sub = h('div', { className: 'subtree' });
+
+  if (dept.contractorGroup) {
+    sub.appendChild(h('div', { style: { background:'#f8fafc', border:'1.5px dashed #e2e8f0', borderRadius:'8px', padding:'4px 12px', textAlign:'center' }, innerHTML: '<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase">Contractors</div>' }));
+    sub.appendChild(vline(10, true));
+    const stack = h('div', { className: 'col-stack' });
+    dept.children.forEach(c => stack.appendChild(renderNode(c)));
+    sub.appendChild(stack);
+    return sub;
+  }
+
+  if (dept.singleNode) {
+    dept.children.forEach(c => sub.appendChild(renderNode(c)));
+    return sub;
+  }
+
+  const colors = { green: 'var(--green)', purple: 'var(--purple)', teal: 'var(--teal)', blue: 'var(--blue)', orange: 'var(--orange)' };
+  const col = colors[dept.color] || 'var(--slate)';
+  const colFade = col.replace(')', '80)').replace('var(', '').replace('--', '');
+
+  // Head node
+  const headNode = h('div', { className: 'node' });
+  if (dept.isQuestion) {
+    headNode.style.cssText = `border:2px dashed #f59e0b;background:#fffbeb;position:relative;`;
+    headNode.innerHTML = `<div style="position:absolute;top:-12px;right:-8px;font-size:20px;">❓</div><div class="node-name" style="color:var(--amber)">${dept.headTitle}</div><div class="node-title" style="color:#92400e">⚠ Discussion Point</div><div class="node-badge" style="background:#dc262615;color:#dc2626">${dept.questionFlag || 'TBD'}</div>`;
+  } else {
+    headNode.style.border = `2px solid ${col}`;
+    if (dept.head) {
+      headNode.innerHTML = `<div class="node-name" style="color:${col}">${dept.head}</div><div class="node-title">${dept.headTitle}</div>`;
+    } else {
+      headNode.innerHTML = `<div class="node-name" style="color:${col}">${dept.headTitle}</div>`;
+    }
+  }
+  sub.appendChild(headNode);
+
+  // Children
+  if (dept.children && dept.children.length > 0) {
+    const cFade = col.replace('var(', '').replace(')', '');
+    const lineC = dept.isQuestion ? '#f59e0b80' : `color-mix(in srgb, ${col} 50%, transparent)`;
+    sub.appendChild(vline(14, dept.isQuestion, dept.isQuestion ? '#f59e0b80' : undefined));
+
+    if (dept.children.length === 1) {
+      const c = dept.children[0];
+      const cn = renderNode(c);
+      sub.appendChild(cn);
+      if (c.children && c.children.length > 0) {
+        sub.appendChild(vline(10, false));
+        c.children.forEach(gc => sub.appendChild(renderNode(gc)));
+      }
+    } else {
+      const childEls = dept.children.map(c => {
+        if (c.children && c.children.length > 0) {
+          const s = h('div', { className: 'subtree' });
+          s.appendChild(renderNode(c));
+          s.appendChild(vline(10, false));
+          c.children.forEach(gc => s.appendChild(renderNode(gc)));
+          return s;
+        }
+        return renderNode(c);
+      });
+      sub.appendChild(makeBranch(childEls, { color: dept.isQuestion ? '#f59e0b80' : undefined }));
+    }
+  }
+
+  return sub;
+}
+
+function renderProdEng(pe) {
+  const sub = h('div', { className: 'subtree' });
+
+  // Co-leaders row
+  const leadRow = h('div', { className: 'row', style: { gap: '10px' } });
+  pe.leaders.forEach(l => {
+    const nd = h('div', { className: 'node', style: { border: '2px solid var(--orange)', width: '148px' } });
+    nd.innerHTML = `<div class="node-name" style="color:var(--orange)">${l.name}</div><div class="node-title">${l.title}</div>${l.subtitle ? `<div class="node-title" style="color:var(--orange);font-weight:600">${l.subtitle}</div>` : ''}`;
+    leadRow.appendChild(nd);
+  });
+  sub.appendChild(leadRow);
+
+  // Connector bar
+  const bar = h('div', { style: { position:'relative', width:'306px', height:'2px' } });
+  bar.innerHTML = `<div style="position:absolute;left:74px;right:74px;border-top:2px solid #ea580c80"></div><div style="position:absolute;left:50%;width:0;height:16px;border-left:2px solid #ea580c80;top:0"></div>`;
+  sub.appendChild(bar);
+  sub.appendChild(h('div', { style: { height: '14px' } }));
+
+  // Label
+  const label = h('div', { style: { fontSize:'9px', fontWeight:'700', color:'var(--orange)', background:'#ea580c10', border:'1.5px solid #ea580c40', padding:'3px 12px', borderRadius:'20px', textAlign:'center', marginBottom:'4px' } });
+  label.textContent = 'Product & Engineering';
+  sub.appendChild(label);
+  sub.appendChild(vline(12, false, '#ea580c60'));
+
+  // Pods
+  const renderPod = (name, directionLabel, dirColor, product, engineering) => {
+    const pod = h('div', { className: 'subtree' });
+    const header = h('div', { className: 'pod-header', style: { background: dirColor === 'blue' ? '#eff6ff' : '#ede9fe', border: `2px solid var(--${dirColor === 'blue' ? 'blue' : 'purple'})` } });
+    header.innerHTML = `<div class="pod-header-name" style="color:var(--${dirColor === 'blue' ? 'blue' : 'purple'})">${name}</div><div class="pod-header-sub" style="color:${dirColor === 'blue' ? '#3b82f6' : '#8b5cf6'}">→ ${directionLabel}</div>`;
+    pod.appendChild(header);
+    pod.appendChild(vline(12, false, `var(--${dirColor === 'blue' ? 'blue' : 'purple'})60`));
+
+    const prodCol = h('div', { className: 'col-stack' });
+    prodCol.appendChild(h('div', { className: 'section-label', innerHTML: 'Product' }));
+    product.forEach(p => prodCol.appendChild(renderNode(p)));
+
+    const engCol = h('div', { className: 'col-stack' });
+    engCol.appendChild(h('div', { className: 'section-label', innerHTML: 'Engineering' }));
+    engineering.forEach(e => engCol.appendChild(renderNode(e)));
+
+    pod.appendChild(makeBranch([prodCol, engCol], { color: `var(--${dirColor === 'blue' ? 'blue' : 'purple'})60` }));
+    return pod;
+  };
+
+  // Shared services
+  const sharedEl = h('div', { className: 'subtree' });
+  const sharedHeader = h('div', { style: { background:'#f0fdf4', border:'2px solid #86efac', borderRadius:'10px', padding:'6px 14px', textAlign:'center', width:'140px' } });
+  sharedHeader.innerHTML = `<div style="font-size:11px;font-weight:700;color:#16a34a">Shared Services</div><div style="font-size:9px;color:#4ade80">Across both pods</div>`;
+  sharedEl.appendChild(sharedHeader);
+  sharedEl.appendChild(vline(10, true, '#86efac'));
+  const sharedStack = h('div', { className: 'col-stack' });
+  pe.shared.forEach(s => {
+    const n = renderNode(s, s.flag ? '' : '');
+    if (s.type === 'employee' && !s.flag) { n.style.border = '1.5px solid #86efac'; n.style.background = '#f0fdf4'; }
+    sharedStack.appendChild(n);
+  });
+  sharedEl.appendChild(sharedStack);
+
+  const growth = renderPod('Growth Pod', 'Natan', 'blue', pe.growthPod.product, pe.growthPod.engineering);
+  const ops = renderPod('Operations Pod', 'Rocky', 'purple', pe.opsPod.product, pe.opsPod.engineering);
+
+  sub.appendChild(makeBranch([growth, ops, sharedEl], { color: '#ea580c60', gap: '10px' }));
+  return sub;
+}
+
+function renderPayOps(po) {
+  const sub = h('div', { className: 'subtree' });
+
+  // Head
+  const head = h('div', { className: 'node', style: { border:'2px dashed #f59e0b', background:'#fffbeb', width:'158px' } });
+  head.innerHTML = `<div class="node-name" style="color:var(--amber)">PayOps</div><div class="node-title">Head TBD</div><div class="node-badge" style="background:#d9770620;color:var(--amber)">⚠ Joint: Natan + Rocky</div>`;
+  sub.appendChild(head);
+  sub.appendChild(vline(16, true, '#d9770680'));
+
+  // Contracting
+  const contracting = h('div', { className: 'subtree' });
+  contracting.appendChild(h('div', { className: 'bucket', innerHTML: '<div class="bucket-name">Contracting</div>' }));
+  contracting.appendChild(vline(10, true, '#d9770650'));
+
+  // DME lane
+  const dmeEl = h('div', { className: 'subtree' });
+  const dmeLead = h('div', { className: 'node node-sm', style: { border: '1.5px solid var(--blue)' } });
+  dmeLead.innerHTML = `<div class="lane-badge" style="background:var(--blue)">DME</div><div class="node-name">${po.contracting.dme.lead.name}</div>`;
+  dmeEl.appendChild(dmeLead);
+  dmeEl.appendChild(vline(10, true, '#2563eb50'));
+  const dmeStack = h('div', { className: 'col-stack' });
+  po.contracting.dme.children.forEach(c => dmeStack.appendChild(renderNode(c)));
+  dmeEl.appendChild(dmeStack);
+
+  // Telehealth lane
+  const thEl = h('div', { className: 'subtree' });
+  thEl.appendChild(h('div', { className: 'lane-badge', style: { background: 'var(--purple)' }, innerHTML: 'Telehealth' }));
+  thEl.appendChild(vline(6, true, '#7c3aed50'));
+  po.contracting.telehealth.children.forEach(c => thEl.appendChild(renderNode(c)));
+
+  contracting.appendChild(makeBranch([dmeEl, thEl], { dashed: true, color: '#d9770650' }));
+
+  // Getting Paid
+  const gp = h('div', { className: 'subtree' });
+  gp.appendChild(h('div', { className: 'bucket', innerHTML: '<div class="bucket-name">Getting Paid</div><div class="bucket-sub">RCM</div>' }));
+  gp.appendChild(vline(10, true, '#d9770650'));
+  const gpLead = h('div', { className: 'node node-sm', style: { border: '1.5px solid #e2e8f0' } });
+  gpLead.innerHTML = `<div class="lane-badge" style="background:#475569">DME + Telehealth</div><div class="node-name">${po.gettingPaid.lead.name}</div>`;
+  gp.appendChild(gpLead);
+  if (po.gettingPaid.children && po.gettingPaid.children.length) {
+    gp.appendChild(vline(8, true, '#d9770650'));
+    po.gettingPaid.children.forEach(c => gp.appendChild(renderNode(c)));
+  }
+
+  // Complaintments
+  const cm = h('div', { className: 'subtree' });
+  cm.appendChild(h('div', { className: 'bucket', innerHTML: '<div class="bucket-name">Complaintments</div><div class="bucket-sub">Compliance + Maint.</div>' }));
+  cm.appendChild(vline(10, true, '#d9770650'));
+  po.complaintments.children.forEach(c => cm.appendChild(renderNode(c)));
+
+  sub.appendChild(makeBranch([contracting, gp, cm], { dashed: true, color: '#d9770680' }));
+  return sub;
+}
+
+function render() {
+  const canvas = document.getElementById('canvas');
+  canvas.innerHTML = '';
+
+  const tree = h('div', { className: 'tree' });
+
+  // === EXECUTIVES ===
+  const execRow = h('div', { className: 'row', style: { gap: '50px' } });
+  const ceoNode = h('div', { className: 'node node-exec', style: { background: 'var(--blue)' } });
+  ceoNode.innerHTML = `<div class="node-name">${ORG.executives.ceo.name}</div><div class="node-title">${ORG.executives.ceo.title}</div>`;
+  const cpoNode = h('div', { className: 'node node-exec', style: { background: 'var(--purple)' } });
+  cpoNode.innerHTML = `<div class="node-name">${ORG.executives.cpo.name}</div><div class="node-title">${ORG.executives.cpo.title}</div>`;
+  execRow.append(ceoNode, cpoNode);
+  tree.appendChild(execRow);
+
+  // Connector bar
+  const bar = h('div', { style: { position:'relative', width:'356px', height:'2px', marginTop:'-1px' } });
+  bar.innerHTML = `<div style="position:absolute;left:78px;right:78px;border-top:2px solid #94a3b8"></div><div style="position:absolute;left:50%;width:0;height:22px;border-left:2px solid #94a3b8;top:0"></div>`;
+  tree.appendChild(bar);
+  tree.appendChild(h('div', { style: { height: '20px' } }));
+
+  // === THREE ZONES ===
+  const zones = h('div', { className: 'row', style: { gap: '32px', alignItems: 'flex-start' } });
+
+  // --- NATAN'S ORG ---
+  const natanZone = h('div', { className: 'subtree' });
+  natanZone.appendChild(h('div', { className: 'zone-label', style: { background:'#eff6ff', color:'var(--blue)', border:'1px solid #bfdbfe' }, innerHTML: "NATAN'S ORG" }));
+  const natanRow = h('div', { className: 'row', style: { gap: '14px', alignItems: 'flex-start' } });
+  ORG.natanOrg.forEach(d => natanRow.appendChild(renderDepartment(d)));
+  natanZone.appendChild(natanRow);
+
+  // --- JOINT ---
+  const jointZone = h('div', { className: 'subtree' });
+  jointZone.appendChild(h('div', { className: 'zone-label', style: { background:'#fffbeb', color:'var(--amber)', border:'1px solid #fde68a' }, innerHTML: 'JOINT' }));
+  const jointRow = h('div', { className: 'row', style: { gap: '28px', alignItems: 'flex-start' } });
+  jointRow.appendChild(renderProdEng(ORG.prodEng));
+  jointRow.appendChild(renderPayOps(ORG.payOps));
+  jointZone.appendChild(jointRow);
+
+  // --- ROCKY'S ORG ---
+  const rockyZone = h('div', { className: 'subtree' });
+  rockyZone.appendChild(h('div', { className: 'zone-label', style: { background:'#ede9fe', color:'var(--purple)', border:'1px solid #c4b5fd' }, innerHTML: "ROCKY'S ORG" }));
+  const rockyRow = h('div', { className: 'row', style: { gap: '14px', alignItems: 'flex-start' } });
+  ORG.rockyOrg.forEach(d => rockyRow.appendChild(renderDepartment(d)));
+  rockyZone.appendChild(rockyRow);
+
+  zones.append(natanZone, jointZone, rockyZone);
+  tree.appendChild(zones);
+  canvas.appendChild(tree);
+
+  // Patch hlines after render
+  requestAnimationFrame(() => { requestAnimationFrame(patchHlines); });
+
+  // Render panels
+  renderDiscussion();
+  renderHiring();
+}
+
+function renderDiscussion() {
+  const el = document.getElementById('discussionList');
+  el.innerHTML = ORG.discussionPoints.map((d, i) =>
+    `<div class="flags-item">${i + 1}. <strong>${d.tag}</strong> — ${d.text}</div>`
+  ).join('');
+}
+
+function renderHiring() {
+  const el = document.getElementById('hiringList');
+  const totalMin = ORG.openRoles.reduce((s, r) => s + (parseInt(r.count) || 0), 0);
+  el.innerHTML = `
+    <table class="hiring-table">
+      <thead><tr><th>#</th><th>Role</th><th>Department</th><th>Reports To</th><th>Count</th></tr></thead>
+      <tbody>${ORG.openRoles.map((r, i) => `<tr><td>${i + 1}</td><td>${r.role}</td><td>${r.dept}</td><td>${r.reportsTo}</td><td>${r.count}</td></tr>`).join('')}</tbody>
+    </table>
+    <div class="hiring-summary">Total open roles: <strong>${totalMin}+</strong></div>
+  `;
+}
+
+// =============================================================================
+// PAN & ZOOM
+// =============================================================================
+const wrap = document.getElementById('canvasWrap');
+const canvasEl = document.getElementById('canvas');
+let zoom = 0.85, panX = 0, panY = 0, isDragging = false, startX, startY;
+
+function applyTransform() {
+  canvasEl.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+  document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+}
+
+wrap.addEventListener('mousedown', e => { isDragging=true; startX=e.clientX-panX; startY=e.clientY-panY; wrap.classList.add('dragging'); });
+window.addEventListener('mousemove', e => { if(!isDragging)return; panX=e.clientX-startX; panY=e.clientY-startY; applyTransform(); });
+window.addEventListener('mouseup', () => { isDragging=false; wrap.classList.remove('dragging'); });
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const d = e.deltaY > 0 ? -0.05 : 0.05;
+  const nz = Math.min(2, Math.max(0.3, zoom + d));
+  const r = wrap.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  panX = mx - (mx - panX) * (nz / zoom);
+  panY = my - (my - panY) * (nz / zoom);
+  zoom = nz; applyTransform();
+}, { passive: false });
+
+// Touch
+let lastTouchDist = 0;
+wrap.addEventListener('touchstart', e => { if(e.touches.length===1){isDragging=true;startX=e.touches[0].clientX-panX;startY=e.touches[0].clientY-panY}else if(e.touches.length===2){isDragging=false;lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)} });
+wrap.addEventListener('touchmove', e => { e.preventDefault(); if(e.touches.length===1&&isDragging){panX=e.touches[0].clientX-startX;panY=e.touches[0].clientY-startY;applyTransform()}else if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);zoom=Math.min(2,Math.max(0.3,zoom*(d/lastTouchDist)));lastTouchDist=d;applyTransform()} }, { passive:false });
+wrap.addEventListener('touchend', () => { isDragging=false; });
+
+function changeZoom(d) { zoom=Math.min(2,Math.max(0.3,zoom+d)); applyTransform(); }
+function resetView() {
+  zoom = 0.85;
+  const ww = wrap.clientWidth, cw = canvasEl.scrollWidth * zoom;
+  panX = Math.max(20, (ww - cw) / 2); panY = 20; applyTransform();
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.panel-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel-content').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  adjustCanvas();
+}
+function adjustCanvas() {
+  requestAnimationFrame(() => {
+    const pw = document.querySelector('.panels-wrap');
+    wrap.style.top = (pw.offsetHeight + 52) + 'px';
+  });
+}
+
+// =============================================================================
+// CHAT / AI EDITOR
+// =============================================================================
+let chatOpen = false;
+const STORAGE_KEY = 'conduit_orgchart_apikey';
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chatPanel').classList.toggle('open', chatOpen);
+  document.getElementById('chatToggle').classList.toggle('active', chatOpen);
+  document.getElementById('chatToggle').innerHTML = chatOpen ? '✕' : '💬';
+  document.body.classList.toggle('chat-open', chatOpen);
+
+  // Load saved key
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    document.getElementById('apiKeyInput').value = saved;
+    document.getElementById('keyBar').style.display = 'none';
+  }
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) { localStorage.setItem(STORAGE_KEY, key); document.getElementById('keyBar').style.display = 'none'; addMsg('system', '✅ API key saved. You can start making changes!'); }
+}
+
+function addMsg(role, content) {
+  const msgs = document.getElementById('chatMessages');
+  const el = h('div', { className: `chat-msg ${role}` });
+  el.innerHTML = content;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+  return el;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const key = localStorage.getItem(STORAGE_KEY);
+  if (!key) { addMsg('error', '⚠️ Please enter your Anthropic API key first.'); document.getElementById('keyBar').style.display = 'flex'; return; }
+
+  addMsg('user', text);
+
+  // Typing indicator
+  const typing = addMsg('assistant', '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>');
+
+  const systemPrompt = `You are an org chart editor for Conduit Health. You receive the current org data as JSON and a change request. You MUST return a valid JSON object with the updated org data. Return ONLY the JSON — no explanation, no markdown fences, no extra text. The JSON structure must match the input exactly (same keys, same nesting). Be precise with modifications. If you're unsure about something, make your best interpretation and note it in a discussion point.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: `Current org data:\n${JSON.stringify(ORG, null, 2)}\n\nChange requested: "${text}"\n\nReturn the complete updated JSON.` }
+        ]
+      })
+    });
+
+    const data = await resp.json();
+    typing.remove();
+
+    if (data.error) {
+      addMsg('error', `⚠️ API Error: ${data.error.message || JSON.stringify(data.error)}`);
+      return;
+    }
+
+    const content = data.content?.[0]?.text || '';
+
+    // Try to parse JSON from response
+    let parsed;
+    try {
+      // Strip markdown fences if present
+      const clean = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      parsed = JSON.parse(clean);
+    } catch (parseErr) {
+      addMsg('error', '⚠️ Could not parse the response. Try rephrasing your request.');
+      addMsg('assistant', content.substring(0, 500) + '...');
+      return;
+    }
+
+    // Update and re-render
+    ORG = parsed;
+    render();
+    setTimeout(() => { patchHlines(); resetView(); }, 100);
+    addMsg('assistant', '✅ Org chart updated! Take a look.');
+
+    // Save to localStorage
+    localStorage.setItem('conduit_orgchart_data', JSON.stringify(ORG));
+
+  } catch (err) {
+    typing.remove();
+    addMsg('error', `⚠️ Network error: ${err.message}. Check your API key and try again.`);
+  }
+}
+
+// =============================================================================
+// INIT
+// =============================================================================
+window.addEventListener('load', () => {
+  // Load saved data if available
+  const saved = localStorage.getItem('conduit_orgchart_data');
+  if (saved) { try { ORG = JSON.parse(saved); } catch(e) {} }
+
+  render();
+  adjustCanvas();
+  setTimeout(() => { patchHlines(); resetView(); }, 150);
+});
+</script>
+</body>
+</html>
