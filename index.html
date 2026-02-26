@@ -6,6 +6,21 @@
 <title>Conduit Health — Org Chart</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 <style>
+/* ========== PASSWORD GATE ========== */
+.pw-gate { position:fixed; inset:0; z-index:9999; background:var(--bg); display:flex; align-items:center; justify-content:center; font-family:'DM Sans',-apple-system,sans-serif; }
+.pw-gate.hidden { display:none; }
+.pw-box { background:#fff; border-radius:16px; padding:40px; box-shadow:0 8px 40px rgba(0,0,0,0.08); text-align:center; max-width:360px; width:90%; }
+.pw-box .pw-logo { width:48px;height:48px; background:linear-gradient(135deg,#2563eb,#7c3aed); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#fff;font-weight:800;font-size:22px; margin:0 auto 16px; }
+.pw-box h2 { font-size:20px; font-weight:700; color:#1e293b; margin-bottom:4px; }
+.pw-box p { font-size:13px; color:#94a3b8; margin-bottom:20px; }
+.pw-box input { width:100%; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; font-family:inherit; text-align:center; letter-spacing:0.1em; outline:none; transition:border-color 0.15s; }
+.pw-box input:focus { border-color:#2563eb; }
+.pw-box input.pw-error { border-color:#ef4444; animation:pw-shake 0.4s; }
+.pw-box button { width:100%; margin-top:12px; padding:10px; border:none; border-radius:8px; background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; transition:opacity 0.15s; }
+.pw-box button:hover { opacity:0.9; }
+.pw-err-msg { font-size:12px; color:#ef4444; margin-top:8px; min-height:18px; }
+@keyframes pw-shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+
 :root {
   --blue: #2563eb; --purple: #7c3aed; --amber: #d97706; --orange: #ea580c;
   --green: #16a34a; --teal: #0891b2; --slate: #475569; --light-slate: #94a3b8;
@@ -135,6 +150,19 @@ body.chat-open .legend { left:calc(50% - 210px); }
 </head>
 <body>
 
+<!-- PASSWORD GATE -->
+<div class="pw-gate" id="pwGate">
+  <div class="pw-box">
+    <div class="pw-logo">C</div>
+    <h2>Conduit Health</h2>
+    <p>Enter the password to view the org chart</p>
+    <input type="password" id="pwInput" placeholder="Password" autofocus
+      onkeydown="if(event.key==='Enter')checkPassword()">
+    <button onclick="checkPassword()">Enter</button>
+    <div class="pw-err-msg" id="pwErr"></div>
+  </div>
+</div>
+
 <!-- HEADER -->
 <div class="header">
   <div class="header-left">
@@ -210,6 +238,36 @@ body.chat-open .legend { left:calc(50% - 210px); }
 </div>
 
 <script>
+// =============================================================================
+// PASSWORD GATE
+// =============================================================================
+const PW_HASH = 'd2093fb112d85e7bafc0865d405e5a18f92b362e2aee3cb8cc8af498fee0657e'; // SHA-256 of "2026"
+const PW_SESSION_KEY = 'conduit_orgchart_authed';
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkPassword() {
+  const input = document.getElementById('pwInput');
+  const err = document.getElementById('pwErr');
+  const hash = await sha256(input.value);
+  if (hash === PW_HASH) {
+    sessionStorage.setItem(PW_SESSION_KEY, '1');
+    document.getElementById('pwGate').classList.add('hidden');
+  } else {
+    input.classList.add('pw-error');
+    err.textContent = 'Incorrect password';
+    setTimeout(() => { input.classList.remove('pw-error'); }, 400);
+  }
+}
+
+// Auto-unlock if already authed this session
+if (sessionStorage.getItem(PW_SESSION_KEY) === '1') {
+  document.getElementById('pwGate').classList.add('hidden');
+}
+
 // =============================================================================
 // ORG DATA — This is the single source of truth. The chatbot modifies this.
 // =============================================================================
