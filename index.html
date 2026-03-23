@@ -219,10 +219,6 @@ body.chat-open .legend { left:calc(50% - 210px); }
       <span>Powered by Claude · Describe changes in plain English</span>
     </div>
   </div>
-  <div class="chat-key-bar" id="keyBar">
-    <input type="password" id="apiKeyInput" placeholder="Paste your Anthropic API key..." />
-    <button class="ctrl-btn" onclick="saveApiKey()">Save</button>
-  </div>
   <div class="chat-messages" id="chatMessages">
     <div class="chat-msg system">
       👋 Tell me what to change and I'll update the org chart. Examples:<br>
@@ -839,7 +835,6 @@ function adjustCanvas() {
 // CHAT / AI EDITOR
 // =============================================================================
 let chatOpen = false;
-const STORAGE_KEY = 'conduit_orgchart_apikey';
 
 function toggleChat() {
   chatOpen = !chatOpen;
@@ -847,18 +842,6 @@ function toggleChat() {
   document.getElementById('chatToggle').classList.toggle('active', chatOpen);
   document.getElementById('chatToggle').innerHTML = chatOpen ? '✕' : '💬';
   document.body.classList.toggle('chat-open', chatOpen);
-
-  // Load saved key
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    document.getElementById('apiKeyInput').value = saved;
-    document.getElementById('keyBar').style.display = 'none';
-  }
-}
-
-function saveApiKey() {
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if (key) { localStorage.setItem(STORAGE_KEY, key); document.getElementById('keyBar').style.display = 'none'; addMsg('system', '✅ API key saved. You can start making changes!'); }
 }
 
 function addMsg(role, content) {
@@ -876,9 +859,6 @@ async function sendChat() {
   if (!text) return;
   input.value = '';
 
-  const key = localStorage.getItem(STORAGE_KEY);
-  if (!key) { addMsg('error', '⚠️ Please enter your Anthropic API key first.'); document.getElementById('keyBar').style.display = 'flex'; return; }
-
   addMsg('user', text);
 
   // Typing indicator
@@ -887,16 +867,10 @@ async function sendChat() {
   const systemPrompt = `You are an org chart editor for Conduit Health. You receive the current org data as JSON and a change request. You MUST return a valid JSON object with the updated org data. Return ONLY the JSON — no explanation, no markdown fences, no extra text. The JSON structure must match the input exactly (same keys, same nesting). Be precise with modifications. If you're unsure about something, make your best interpretation and note it in a discussion point.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('/api/claude-proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
         max_tokens: 8000,
         system: systemPrompt,
         messages: [
@@ -938,7 +912,7 @@ async function sendChat() {
 
   } catch (err) {
     typing.remove();
-    addMsg('error', `⚠️ Network error: ${err.message}. Check your API key and try again.`);
+    addMsg('error', `⚠️ Network error: ${err.message}`);
   }
 }
 
